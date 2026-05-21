@@ -3,33 +3,34 @@
 
 #include "utils.h"
 
-/* ─── Cell ──────────────────────────────────────────────────────── */
 typedef struct {
-    int  value;       /* 0 = empty, 1-9 = digit          */
-    int  given;       /* 1 = fixed clue, 0 = user cell   */
-    int  error;       /* 1 = conflicts with rules        */
+    int value;
+    int given;
+    int error;
 } Cell;
 
-/* ─── Grid ──────────────────────────────────────────────────────── */
 typedef struct {
-    Cell      cells[GRID_SIZE][GRID_SIZE];
-    int       solution[GRID_SIZE][GRID_SIZE]; /* full solved grid   */
+    Cell **cells;
+    int **solution;
     Difficulty difficulty;
-    int       mistakes;   /* total wrong placements         */
-    time_t    start_time; /* for elapsed timer              */
-    int       selected_row;
-    int       selected_col;
+    int mistakes;
+    time_t start_time;
+    int selected_row;
+    int selected_col;
+    int game_over;
+    int win;
+    int game_mode;
 } Grid;
 
-/* ─── Prototypes ────────────────────────────────────────────────── */
-void grid_init          (Grid *g);
-int  is_valid_placement (const Grid *g, int row, int col, int num);
-int  is_complete        (const Grid *g);
-int  place_number       (Grid *g, int row, int col, int num);
-void erase_cell         (Grid *g, int row, int col);
-void check_errors       (Grid *g);
-int  is_solved          (const Grid *g);
-int  get_elapsed_seconds(const Grid *g);
-void grid_copy_solution (Grid *g); /* copy solution[] → cells[]  */
+void grid_init(Grid *g, int mode);
+void grid_free(Grid *g);
+int is_valid_placement(const Grid *g, int row, int col, int num);
+int place_number(Grid *g, int row, int col, int num);
+void erase_cell(Grid *g, int row, int col);
+void check_errors(Grid *g);
+int is_complete(const Grid *g);
+int is_solved(const Grid *g);
+int get_elapsed_seconds(const Grid *g);
+void reset_game(Grid *g, Difficulty diff, int mode);
 
-#endif /* GAME_LOGIC_H */
+#endif
