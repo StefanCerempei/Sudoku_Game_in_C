@@ -5,44 +5,63 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 
-/* ─── Grid dimensions ───────────────────────────────────────────── */
-#define GRID_SIZE       9
-#define BOX_SIZE        3
+// Moduri de joc
+#define MODE_CLASSIC    0
+#define MODE_SCALE_UP   1
+
+// Dimensiuni pentru modul clasic (9x9)
+#define CLASSIC_SIZE    9
+#define CLASSIC_BOX     3
+#define CLASSIC_REMOVE_EASY   36
+#define CLASSIC_REMOVE_MEDIUM 46
+#define CLASSIC_REMOVE_HARD   54
+
+// Dimensiuni pentru modul scale-up (16x16)
+#define SCALE_SIZE      16
+#define SCALE_BOX       4
+#define SCALE_REMOVE_EASY     96
+#define SCALE_REMOVE_MEDIUM   128
+#define SCALE_REMOVE_HARD     160
+
+// Variabile globale
+extern int GRID_SIZE;
+extern int BOX_SIZE;
+extern int MAX_DIGIT;
+extern int EASY_REMOVE;
+extern int MEDIUM_REMOVE;
+extern int HARD_REMOVE;
+extern int CELL_SIZE;
+extern int GRID_OFFSET_X;
+extern int GRID_OFFSET_Y;
+extern int SCREEN_WIDTH;
+extern int SCREEN_HEIGHT;
+
 #define EMPTY           0
-
-/* ─── Difficulty cell-removal counts ───────────────────────────── */
-#define EASY_REMOVE     36
-#define MEDIUM_REMOVE   46
-#define HARD_REMOVE     54
-
-/* ─── Leaderboard ───────────────────────────────────────────────── */
 #define LB_FILE         "leaderboard.csv"
 #define LB_MAX_ENTRIES  10
 #define NAME_LEN        32
 
-/* ─── ANSI color codes ──────────────────────────────────────────── */
-#define COL_RESET       "\033[0m"
-#define COL_BOLD        "\033[1m"
-#define COL_RED         "\033[31m"
-#define COL_GREEN       "\033[32m"
-#define COL_YELLOW      "\033[33m"
-#define COL_BLUE        "\033[34m"
-#define COL_MAGENTA     "\033[35m"
-#define COL_CYAN        "\033[36m"
-#define COL_WHITE       "\033[37m"
-#define COL_BG_DARK     "\033[48;5;235m"
-#define COL_GIVEN       "\033[1;37m"   /* given cells  – bold white  */
-#define COL_USER        "\033[1;33m"   /* user input   – bold yellow */
-#define COL_ERROR       "\033[1;31m"   /* errors       – bold red    */
-#define COL_HIGHLIGHT   "\033[48;5;24m"/* selected cell highlight    */
-
-/* ─── Misc macros ───────────────────────────────────────────────── */
-#define CLEAR_SCREEN()  printf("\033[2J\033[H")
-#define MIN(a,b)        ((a)<(b)?(a):(b))
-#define MAX(a,b)        ((a)>(b)?(a):(b))
-#define UNUSED(x)       (void)(x)
-
 typedef enum { EASY = 0, MEDIUM, HARD } Difficulty;
 
-#endif /* UTILS_H */
+static inline char digit_to_char(int d) {
+    if (d == 0) return ' ';
+    if (d <= 9) return '0' + d;
+    return 'A' + (d - 10);
+}
+
+static inline int char_to_digit(char c) {
+    if (c >= '1' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'G') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'g') return c - 'a' + 10;
+    return 0;
+}
+
+#endif
+
+// Limite de timp pentru fiecare dificultate (în secunde)
+#define TIME_LIMIT_EASY     600    // 10 minute
+#define TIME_LIMIT_MEDIUM   900    // 15 minute
+#define TIME_LIMIT_HARD     1200   // 20 minute
+
