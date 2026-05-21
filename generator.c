@@ -1,17 +1,13 @@
 #include "generator.h"
 
-/* ─── Fisher-Yates shuffle for int array ───────────────────────── */
-static void shuffle(int *arr, int n)
-{
+static void shuffle(int *arr, int n) {
     for (int i = n - 1; i > 0; i--) {
         int j = rand() % (i + 1);
         int tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
     }
 }
 
-/* ─── Check raw board (no Grid wrapper) ────────────────────────── */
-static int raw_valid(int board[GRID_SIZE][GRID_SIZE], int r, int c, int num)
-{
+static int raw_valid(int **board, int r, int c, int num) {
     for (int i = 0; i < GRID_SIZE; i++) {
         if (board[r][i] == num) return 0;
         if (board[i][c] == num) return 0;
@@ -24,128 +20,94 @@ static int raw_valid(int board[GRID_SIZE][GRID_SIZE], int r, int c, int num)
     return 1;
 }
 
-/* ─── Recursive fill with randomised digit order ───────────────── */
-static int fill_recursive(int board[GRID_SIZE][GRID_SIZE], int pos)
-{
+static int fill_recursive(int **board, int pos) {
     if (pos == GRID_SIZE * GRID_SIZE) return 1;
-
     int r = pos / GRID_SIZE, c = pos % GRID_SIZE;
     if (board[r][c] != EMPTY) return fill_recursive(board, pos + 1);
 
-    int digits[9] = {1,2,3,4,5,6,7,8,9};
-    shuffle(digits, 9);
-
-    for (int i = 0; i < 9; i++) {
+    int *digits = malloc(MAX_DIGIT * sizeof(int));
+    for (int i = 0; i < MAX_DIGIT; i++) digits[i] = i + 1;
+    shuffle(digits, MAX_DIGIT);
+    
+    for (int i = 0; i < MAX_DIGIT; i++) {
         if (raw_valid(board, r, c, digits[i])) {
             board[r][c] = digits[i];
-            if (fill_recursive(board, pos + 1)) return 1;
+            if (fill_recursive(board, pos + 1)) {
+                free(digits);
+                return 1;
+            }
             board[r][c] = EMPTY;
         }
     }
+    free(digits);
     return 0;
 }
 
-/* ─── Public: fill board ────────────────────────────────────────── */
-void fill_board(int board[GRID_SIZE][GRID_SIZE])
-{
-    memset(board, 0, GRID_SIZE * GRID_SIZE * sizeof(int));
+void fill_board(int **board) {
+    for (int i = 0; i < GRID_SIZE; i++)
+        for (int j = 0; j < GRID_SIZE; j++)
+            board[i][j] = EMPTY;
     fill_recursive(board, 0);
 }
 
-/* ─── Solver (counts solutions, stops at 2) ─────────────────────── */
 static int solve_count;
-
-static int solve_recursive(int board[GRID_SIZE][GRID_SIZE], int pos)
-{
-    if (solve_count > 1) return 0;
-    if (pos == GRID_SIZE * GRID_SIZE) { solve_count++; return 1; }
-
+static void solve_recursive(int **board, int pos) {
+    if (solve_count > 1) return;
+    if (pos == GRID_SIZE * GRID_SIZE) { solve_count++; return; }
     int r = pos / GRID_SIZE, c = pos % GRID_SIZE;
-    if (board[r][c] != EMPTY) return solve_recursive(board, pos + 1);
-
-    for (int num = 1; num <= 9; num++) {
+    if (board[r][c] != EMPTY) { solve_recursive(board, pos + 1); return; }
+    for (int num = 1; num <= MAX_DIGIT; num++) {
         if (raw_valid(board, r, c, num)) {
             board[r][c] = num;
             solve_recursive(board, pos + 1);
             board[r][c] = EMPTY;
-            if (solve_count > 1) return 0;
+            if (solve_count > 1) return;
         }
     }
-    return 0;
 }
 
-/* Returns 1 if board has a unique solution */
-static int has_unique_solution(int board[GRID_SIZE][GRID_SIZE])
-{
-    int tmp[GRID_SIZE][GRID_SIZE];
-    memcpy(tmp, board, sizeof(tmp));
+static int has_unique_solution(Grid *g) {
+    int **tmp = malloc(GRID_SIZE * sizeof(int*));
+    for (int i = 0; i < GRID_SIZE; i++) {
+        tmp[i] = malloc(GRID_SIZE * sizeof(int));
+        for (int j = 0; j < GRID_SIZE; j++)
+            tmp[i][j] = g->cells[i][j].value;
+    }
     solve_count = 0;
     solve_recursive(tmp, 0);
-    return (solve_count == 1);
+    for (int i = 0; i < GRID_SIZE; i++) free(tmp[i]);
+    free(tmp);
+    return solve_count == 1;
 }
 
-/* Public solve (fills board in-place, returns 1 on success) */
-int solve_board(int board[GRID_SIZE][GRID_SIZE])
-{
-    solve_count = 0;
+int solve_board(int **board) {
     return fill_recursive(board, 0);
 }
 
-/* ─── Remove cells while maintaining unique solution ────────────── */
-void remove_cells(Grid *g, int count)
-{
-    /* Build a shuffled list of all 81 positions */
-    int positions[GRID_SIZE * GRID_SIZE];
-    for (int i = 0; i < GRID_SIZE * GRID_SIZE; i++) positions[i] = i;
-    shuffle(positions, GRID_SIZE * GRID_SIZE);
-
-    int removed = 0;
-    for (int k = 0; k < GRID_SIZE * GRID_SIZE && removed < count; k++) {
-        int r = positions[k] / GRID_SIZE;
-        int c = positions[k] % GRID_SIZE;
-
-        int backup = g->cells[r][c].value;
-        g->cells[r][c].value = EMPTY;
-        g->cells[r][c].given = 0;
-
-        /* Build a raw int board to test uniqueness */
-        int tmp[GRID_SIZE][GRID_SIZE];
-        for (int i = 0; i < GRID_SIZE; i++)
-            for (int j = 0; j < GRID_SIZE; j++)
-                tmp[i][j] = g->cells[i][j].value;
-
-        if (has_unique_solution(tmp)) {
-            removed++;
-        } else {
-            /* Restore */
-            g->cells[r][c].value = backup;
-            g->cells[r][c].given = 1;
-        }
-    }
-}
-
-/* ─── Main public entry ─────────────────────────────────────────── */
-void generate_puzzle(Grid *g, Difficulty diff)
-{
-    grid_init(g);
-    g->difficulty = diff;
-
-    /* 1. Fill a complete solution */
+void generate_puzzle(Grid *g, Difficulty diff) {
     fill_board(g->solution);
-
-    /* 2. Copy solution into cells (all given) */
     for (int r = 0; r < GRID_SIZE; r++)
         for (int c = 0; c < GRID_SIZE; c++) {
             g->cells[r][c].value = g->solution[r][c];
             g->cells[r][c].given = 1;
-            g->cells[r][c].error = 0;
         }
-
-    /* 3. Remove cells according to difficulty */
-    int to_remove = (diff == EASY)   ? EASY_REMOVE   :
-                    (diff == MEDIUM)  ? MEDIUM_REMOVE  :
-                                        HARD_REMOVE;
-    remove_cells(g, to_remove);
-
+    int to_remove = (diff == EASY) ? EASY_REMOVE : (diff == MEDIUM) ? MEDIUM_REMOVE : HARD_REMOVE;
+    int total_cells = GRID_SIZE * GRID_SIZE;
+    int *positions = malloc(total_cells * sizeof(int));
+    for (int i = 0; i < total_cells; i++) positions[i] = i;
+    shuffle(positions, total_cells);
+    int removed = 0;
+    for (int k = 0; k < total_cells && removed < to_remove; k++) {
+        int r = positions[k] / GRID_SIZE, c = positions[k] % GRID_SIZE;
+        int backup = g->cells[r][c].value;
+        g->cells[r][c].value = EMPTY;
+        g->cells[r][c].given = 0;
+        if (has_unique_solution(g)) removed++;
+        else {
+            g->cells[r][c].value = backup;
+            g->cells[r][c].given = 1;
+        }
+    }
+    free(positions);
     g->start_time = time(NULL);
 }
